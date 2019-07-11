@@ -9,6 +9,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Bundle;
+import android.os.Message;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
@@ -27,6 +28,7 @@ import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.RenderersFactory;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.Timeline;
+import com.google.android.exoplayer2.audio.AudioListener;
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory;
 import com.google.android.exoplayer2.extractor.ExtractorsFactory;
 import com.google.android.exoplayer2.source.ExtractorMediaSource;
@@ -57,16 +59,66 @@ public class MainActivity extends Activity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private PlayerView mExoPlayerView;
     private SimpleExoPlayer mSimpleExoPlayer;
+    private ExoPlayer mExoPlayer;
     Uri playerUri = Uri.parse("http://demos.webmproject.org/exoplayer/glass.mp4");
     private ProgressBar mProgressBar;
+
+    private final int UPDATE_PROGRESS = 0;
+    private final int UPDATE_PROGRESS_IN_MS = 50;
+    boolean mIsSlowRange = false;
+
+    private final Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case UPDATE_PROGRESS:
+                    if (mSimpleExoPlayer == null)
+                        return;
+                    checkInsideRange();
+                    try{
+                        if (mSimpleExoPlayer.getPlayWhenReady()) {
+                                msg = obtainMessage(UPDATE_PROGRESS);
+                                sendMessageDelayed(msg, UPDATE_PROGRESS_IN_MS);
+                            }
+                    }catch (Exception e){
+                        e.printStackTrace();
+                    }
+            }
+        }
+    };
+
+    private void checkInsideRange() {
+        long pos = mSimpleExoPlayer.getCurrentPosition();
+        Log.d(TAG, "TTT checkInsideRange pos = "+pos);
+        if (pos > 5000 && pos <= 10000) {
+                if (!mIsSlowRange) {
+                    mIsSlowRange = true;
+                    Log.d(TAG, "TTT setMute vol");
+                    mSimpleExoPlayer.setVolume(0.0f);
+                    PlaybackParameters param = new PlaybackParameters(0.0625f);
+                    mSimpleExoPlayer.setPlaybackParameters(param);
+                }
+            } else if (pos > 10000) {
+                if (mIsSlowRange) {
+                    mIsSlowRange = false;
+                    Log.d(TAG, "TTT setBack vol");
+                    PlaybackParameters param = new PlaybackParameters(1.0f);
+                    mSimpleExoPlayer.setPlaybackParameters(param);
+                    mSimpleExoPlayer.setVolume(1.0f);
+
+                }
+            }
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-//        requestWindowFeature(Window.FEATURE_NO_TITLE);
-//        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-//                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_main);
+        Log.d(TAG, "TTT package name = "+getApplicationContext().getPackageName());
 
         isStoragePermissionGranted();
         Uri uri = getLastContentUri(this);
@@ -114,10 +166,11 @@ public class MainActivity extends Activity {
 //        mSimpleExoPlayer.prepare(videoSource);
         //添加监听的listener
 //        mSimpleExoPlayer.setVideoListener(mVideoListener);
-//        mSimpleExoPlayer.addListener(eventListener);
+        mSimpleExoPlayer.addListener(eventListener);
 //        mSimpleExoPlayer.setTextOutput(mOutput);
         mSimpleExoPlayer.setPlayWhenReady(true);
         mSimpleExoPlayer.prepare(videoSource);
+        mHandler.sendEmptyMessage(UPDATE_PROGRESS);
         Log.d(TAG, "TTT getState = "+mSimpleExoPlayer.getPlaybackState());
 
     }
@@ -182,14 +235,14 @@ public class MainActivity extends Activity {
                     mSimpleExoPlayer.seekTo(0);
                     break;
                 case ExoPlayer.STATE_READY:
-                    mProgressBar.setVisibility(View.GONE);
+//                    mProgressBar.setVisibility(View.GONE);
                     Log.d(TAG, "ExoPlayer ready! pos: "+mSimpleExoPlayer.getCurrentPosition()
                             +" max: "+stringForTime((int)mSimpleExoPlayer.getDuration()));
                     setProgress(0);
                     break;
                 case ExoPlayer.STATE_BUFFERING:
                     Log.d(TAG, "Playback buffering!");
-                    mProgressBar.setVisibility(View.VISIBLE);
+//                    mProgressBar.setVisibility(View.VISIBLE);
                     break;
                 case ExoPlayer.STATE_IDLE:
                     Log.d(TAG, "ExoPlayer idle!");
@@ -252,9 +305,11 @@ public class MainActivity extends Activity {
         final String[] projection = {MediaStore.Images.ImageColumns._ID,
                 MediaStore.Images.ImageColumns.DATA,
                 MediaStore.Images.ImageColumns.DATE_TAKEN,
-                MediaStore.Files.FileColumns.MEDIA_TYPE};
-        final String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " = "+MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
-//        final String[] selectionArgs = {String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE)};
+                MediaStore.Files.FileColumns.MEDIA_TYPE,
+                MediaStore.Files.FileColumns.DISPLAY_NAME};
+        final String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " = "+MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;// + " and " +
+//                MediaStore.Files.FileColumns.DISPLAY_NAME + " = ?";
+//        final String[] selectionArgs = {"TWICE Heart Shaker MV.mp4"};
         final String limit_1 = MediaStore.Images.ImageColumns.DATE_TAKEN + " DESC, " + MediaStore.Images.ImageColumns._ID + " DESC limit 1";
         Cursor cursor = null;
         try {
