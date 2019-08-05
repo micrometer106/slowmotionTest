@@ -5,6 +5,7 @@ import android.content.ContentUris;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Handler;
@@ -14,14 +15,19 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Surface;
+import android.view.TextureView;
 import android.widget.MediaController;
 import android.widget.TextView;
 import android.widget.VideoView;
+
+import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPreparedListener {
     private static final String TAG = MainActivity.class.getSimpleName();
 
     private VideoView mVideoView;
+    private ScaleTextureView mTextureview;
     private int mPosition = 0;
     private MediaController mMediaController;
     private MediaPlayer mMediaPlayer;
@@ -75,47 +81,83 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
         setContentView(R.layout.activity_main);
         isStoragePermissionGranted();
 
-        mVideoView = (VideoView) findViewById(R.id.videoView);
+//        mVideoView = (VideoView) findViewById(R.id.videoView);
+        mTextureview = findViewById(R.id.textureView);
         TextView playTypeTextView = findViewById(R.id.player_type);
         playTypeTextView.append("MediaPlayer");
 
         // Set the media controller buttons
-        if (mMediaController == null) {
-            mMediaController = new MediaController(MainActivity.this);
+//        if (mMediaController == null) {
+//            mMediaController = new MediaController(MainActivity.this);
+//
+//            // Set the videoView that acts as the anchor for the MediaController.
+//            mMediaController.setAnchorView(mVideoView);
+//
+//            // Set MediaController for VideoView
+//            mVideoView.setMediaController(mMediaController);
+//        }
 
-            // Set the videoView that acts as the anchor for the MediaController.
-            mMediaController.setAnchorView(mVideoView);
 
+//        try {
+////            Uri uri = getLastContentUri(this);
+////            mMediaPlayer.setDataSource(this, uri);
+//////            mVideoView.setVideoURI(uri);
+////
+////        } catch (Exception e) {
+////            Log.e("Error", e.getMessage());
+////            e.printStackTrace();
+////        }
 
-            // Set MediaController for VideoView
-            mVideoView.setMediaController(mMediaController);
-        }
+//        mVideoView.requestFocus();
+//
+//        // When the video file ready for playback.
+//        mVideoView.setOnPreparedListener(this);
+        final MediaPlayer.OnPreparedListener listener = this;
+        final Context context = this;
+        final Uri uri = getLastContentUri(this);
+        mTextureview.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override
+            public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+                Log.d(TAG, "TTT onSurfaceTextureAvailable");
+                Surface s = new Surface(surface);
+                mMediaPlayer = new MediaPlayer();
+                mMediaPlayer.setSurface(s);
+                try {
+                    mMediaPlayer.setDataSource(context, uri);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                mMediaPlayer.prepareAsync();
+                mMediaPlayer.setOnPreparedListener(listener);
+            }
 
+            @Override
+            public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
 
-        try {
-            Uri uri = getLastContentUri(this);
-            mVideoView.setVideoURI(uri);
+            }
 
-        } catch (Exception e) {
-            Log.e("Error", e.getMessage());
-            e.printStackTrace();
-        }
+            @Override
+            public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+                return false;
+            }
 
-        mVideoView.requestFocus();
+            @Override
+            public void onSurfaceTextureUpdated(SurfaceTexture surface) {
 
-        // When the video file ready for playback.
-        mVideoView.setOnPreparedListener(this);
+            }
+        });
     }
 
     @Override
     public void onPrepared(MediaPlayer mediaPlayer) {
         Log.d(TAG, "TTT onPrepared");
-        mVideoView.seekTo(mPosition);
-        if (mPosition == 0) {
-            mVideoView.start();
-        }
+//        mVideoView.seekTo(mPosition);
+//        if (mPosition == 0) {
+//            mVideoView.start();
+//        }
 
-        mMediaPlayer = mediaPlayer;
+//        mMediaPlayer = mediaPlayer;
+        mediaPlayer.start();
 //        mHandler.sendEmptyMessage(UPDATE_PROGRESS);
         // When video Screen change size.
         mediaPlayer.setOnVideoSizeChangedListener(new MediaPlayer.OnVideoSizeChangedListener() {
@@ -123,7 +165,7 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
             public void onVideoSizeChanged(MediaPlayer mp, int width, int height) {
 
                 // Re-Set the videoView that acts as the anchor for the MediaController
-                mMediaController.setAnchorView(mVideoView);
+//                mMediaController.setAnchorView(mVideoView);
             }
         });
     }
@@ -145,8 +187,8 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
         super.onSaveInstanceState(savedInstanceState);
 
         // Store current position.
-        savedInstanceState.putInt("CurrentPosition", mVideoView.getCurrentPosition());
-        mVideoView.pause();
+//        savedInstanceState.putInt("CurrentPosition", mVideoView.getCurrentPosition());
+//        mVideoView.pause();
     }
 
 
@@ -156,8 +198,8 @@ public class MainActivity extends AppCompatActivity implements MediaPlayer.OnPre
         super.onRestoreInstanceState(savedInstanceState);
 
         // Get saved position.
-        mPosition = savedInstanceState.getInt("CurrentPosition");
-        mVideoView.seekTo(mPosition);
+//        mPosition = savedInstanceState.getInt("CurrentPosition");
+//        mVideoView.seekTo(mPosition);
     }
 
     private static Uri getLastContentUri(Context context) {
